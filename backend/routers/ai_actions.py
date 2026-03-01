@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from backend.models.tasks import Task
 from backend.models.projects import Project
 from backend.helpers import validate_ai_suggestions, call_ai_api
+from google import genai
 
 router = APIRouter()
 
@@ -37,17 +38,31 @@ async def expand_node(task_id: int):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Call AI API for subtasks
-    subtasks = call_ai_api("expand_node", task)
+    # Call Gemini API for subtasks
+    client = genai.Client()
+    prompt = f"Generate subtasks for the task: {task.title}. Include dependencies."
+    response = client.models.generate_content(
+        model="gemini-3-flash-preview", contents=prompt
+    )
+
+    # Parse the response
+    subtasks_data = response.text  # Assuming the response contains subtasks in a structured format
 
     # Validate and apply subtasks
-    for subtask_data in subtasks:
-        subtask = Task(**subtask_data)
+    subtasks = []
+    for subtask_data in subtasks_data.splitlines():  # Assuming subtasks are line-separated
+        subtask = Task(
+            title=subtask_data,  # Replace with actual parsing logic if needed
+            description=f"Subtask of {task.title}",
+            dependencies=[task.id],
+            status="not started"
+        )
         subtask.save()
+        subtasks.append(subtask)
         task.dependencies.append(subtask.id)
     task.save()
 
-    return {"message": "Node expanded successfully", "subtasks": subtasks}
+    return {"message": "Node expanded successfully", "subtasks": [subtask.title for subtask in subtasks]}
 
 @router.post("/ai/optimize-assignments")
 async def optimize_assignments(project_id: int):
