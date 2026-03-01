@@ -55,6 +55,6 @@ async def parse_task(file: UploadFile):
             raise HTTPException(status_code=400, detail=f"Invalid data format: {e}")
 
     # Create project instance
-    project = Project(id=project_id, tasks=[task.id for task in tasks])
+    project = Project(id=project_id, tasks=[task.id for task in tasks]) 
 
     return {"message": "Tasks and project parsed successfully.", "project": project}
